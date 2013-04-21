@@ -28,6 +28,8 @@ import signal
 import sys
 import subprocess
 
+import os
+
 class UnisisterThread(threading.Thread):
 	__bussy = False
 	
@@ -43,9 +45,15 @@ class UnisisterThread(threading.Thread):
 	
 	def run(self):
 		UnisisterThread.__bussy = True
-		print "Hello world"
-		time.sleep(5.0)
-		print "Hello world again"
+		
+		# In Python 3.3, subprocess.DEVNULL has been added, so use this is available
+		try: 
+			devnull = subprocess.DEVNULL
+		except AttributeError: 
+			devnull = open(os.devnull, 'w')
+			
+		subprocess.call(["unison", "server", "local", "-batch", "-prefer", "server", "-backups"])
+		
 		UnisisterThread.__bussy = False
 	
 	# Not very Pythonic, but a property can't be static, and I don't want
@@ -108,7 +116,6 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 	
 	def StopUnisister(self, evt):
 		# TODO: Is OnTaskBarClose necesarry/usefull?
-		print "stop!"
 		self.OnTaskBarClose(evt)
 	
 	def Synchronisation(self, evt):
