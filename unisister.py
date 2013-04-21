@@ -20,7 +20,7 @@ import wx
 import gettext
 from gettext import gettext as _
 import locale
-import config
+import config as cfg
 
 import threading
 import time
@@ -33,7 +33,7 @@ import os
 class UnisisterThread(threading.Thread):
 	__bussy = False
 	
-	def __init__(self):
+	def __init__(self, config):
 		threading.Thread.__init__(self)
 		# TODO
 		# Daemon threads are abruptly stopped at shutdown. Their resources
@@ -42,6 +42,7 @@ class UnisisterThread(threading.Thread):
 		# make them non-daemonic and use a suitable signalling mechanism
 		# such as an Event.
 		self.deamon = False
+		self._config = config
 	
 	def run(self):
 		UnisisterThread.__bussy = True
@@ -64,6 +65,11 @@ class UnisisterThread(threading.Thread):
 	def is_bussy(cls):
 		return cls.__bussy
 
+class UnisisterConfiguration():
+	def __init__():
+		# Check if config available
+		# TODO
+
 class UnisisterTaskBar(wx.TaskBarIcon):
 	ID_SYNCH = wx.NewId()
  
@@ -74,7 +80,12 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 		# Temporally, this is the UGent Minerva favicon, due to a lack of official logo
 		self.SetIcon(wx.Icon('favicon.ico', wx.BITMAP_TYPE_ICO), "Unisister")
  		
- 		# Create Timer-object, and keep it, as it's necessarry to let in function properly (GBC?)
+		# Before we can even think about the actual synchronisation, we need to initialize
+		# the config object
+		# TODO: create actual object
+		self._config = UnisisterConfiguration()
+		
+ 		# Create Timer-object, and keep it, as it's necessarry to let it function properly (GBC?)
  		self.timer = wx.Timer(self, UnisisterTaskBar.ID_SYNCH)
  		self.Synchronisation(None)
  		
@@ -120,7 +131,7 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 	
 	def Synchronisation(self, evt):
 		if not UnisisterThread.is_bussy():
-			UnisisterThread().start()
+			UnisisterThread(self._config).start()
 		else:
 			print _("We are already bussy synchronising!")
 	
@@ -130,14 +141,14 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 	def AboutUnisister(self, evt):
 		info = wx.AboutDialogInfo()
 		info.Name = "Unisister"
-		info.Version = config.VERSION
+		info.Version = cfg.VERSION
 		info.Copyright = "(C) 2013 Online - Urbanus"
 		info.Icon = wx.Icon('favicon.ico', wx.BITMAP_TYPE_ICO)
 		info.Description = "The sister of Unison.\n" + _("Unisister is a tool to automatically synchronize your directory with a central directory, using Unison.")
 		info.WebSite = ("http://www.Online-Urbanus.be", "Online - Urbanus")
 		info.Developers = ["Paretje"]
 		try:
-			info.License = open(config.LICENSE_LOCATION).read()
+			info.License = open(cfg.LICENSE_LOCATION).read()
 		except Exception:
 			info.License = _("Released under the terms of the GNU General Public License Version 3 \nSee http://www.gnu.org/licenses/gpl.html for more details.")
 		wx.AboutBox(info)
@@ -151,7 +162,7 @@ def _set_localisation():
 		locale.setlocale (locale.LC_ALL, "")
 	
 	gettext.textdomain('unisister')
-	gettext.bindtextdomain('unisister', config.LOCALEDIR)
+	gettext.bindtextdomain('unisister', cfg.LOCALEDIR)
 
 if __name__ == "__main__":
 	app = wx.App(False)
