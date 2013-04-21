@@ -1,7 +1,7 @@
 # Unisister
 # Copyright: (C) 2013 Online - Urbanus
 # Website: http://www.Online-Urbanus.be
-# Last modified: 06/04/2013 by Paretje
+# Last modified: 21/04/2013 by Paretje
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -66,9 +66,10 @@ class UnisisterThread(threading.Thread):
 		return cls.__bussy
 
 class UnisisterConfiguration():
-	def __init__():
+	def __init__(self):
 		# Check if config available
 		# TODO
+		pass
 
 class UnisisterTaskBar(wx.TaskBarIcon):
 	ID_SYNCH = wx.NewId()
