@@ -1,7 +1,7 @@
 # Unisister
 # Copyright: (C) 2013 Online - Urbanus
 # Website: http://www.Online-Urbanus.be
-# Last modified: 21/04/2013 by Paretje
+# Last modified: 26/04/2013 by Paretje
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ import wx
 import gettext
 from gettext import gettext as _
 import locale
-import config as cfg
+import config
 
 import threading
 import time
@@ -31,9 +31,9 @@ import subprocess
 import os
 
 class UnisisterThread(threading.Thread):
-	__bussy = False
+	_bussy = False
 	
-	def __init__(self, config):
+	def __init__(self, task_bar):
 		threading.Thread.__init__(self)
 		# TODO
 		# Daemon threads are abruptly stopped at shutdown. Their resources
@@ -42,20 +42,24 @@ class UnisisterThread(threading.Thread):
 		# make them non-daemonic and use a suitable signalling mechanism
 		# such as an Event.
 		self.deamon = False
-		self._config = config
+		self.task_bar = task_bar
 	
 	def run(self):
-		UnisisterThread.__bussy = True
+		UnisisterThread._bussy = True
+		# TODO: MVC!! + is absolute path avoidable?
+		self.task_bar.SetIcon(wx.Icon('/usr/share/icons/Tango/22x22/status/network-transmit-receive.png', wx.BITMAP_TYPE_PNG), "Unisister")
 		
 		# In Python 3.3, subprocess.DEVNULL has been added, so use this is available
 		try: 
 			devnull = subprocess.DEVNULL
 		except AttributeError: 
 			devnull = open(os.devnull, 'w')
-			
-		subprocess.call(["unison", "server", "local", "-batch", "-prefer", "server", "-backups"])
 		
-		UnisisterThread.__bussy = False
+		server = 'ssh://' + self.task_bar.config.Read('server_ip') + '/' + self.task_bar.config.Read('server_location')
+		local = self.task_bar.config.Read('local_location')
+		subprocess.call(["unison", server, local, "-batch", "-prefer", server])
+		self.task_bar.SetIcon(wx.Icon('/usr/share/icons/Tango/22x22/status/network-idle.png', wx.BITMAP_TYPE_PNG), "Unisister")
+		UnisisterThread._bussy = False
 	
 	# Not very Pythonic, but a property can't be static, and I don't want
 	# to use the variable directly, as I think it's quite likely this
@@ -63,30 +67,22 @@ class UnisisterThread(threading.Thread):
 	# TODO: is this story true???
 	@classmethod
 	def is_bussy(cls):
-		return cls.__bussy
-
-class UnisisterConfiguration():
-	def __init__(self):
-		# Check if config available
-		# TODO
-		pass
+		return cls._bussy
 
 class UnisisterTaskBar(wx.TaskBarIcon):
 	ID_SYNCH = wx.NewId()
  
 	def __init__(self):
 		wx.TaskBarIcon.__init__(self)
- 
+ 		
+ 		# Load user-preferences
+ 		self.config = wx.Config('unisister')
+ 		
 		# Set the icon of Unisister
 		# Temporally, this is the UGent Minerva favicon, due to a lack of official logo
-		self.SetIcon(wx.Icon('favicon.ico', wx.BITMAP_TYPE_ICO), "Unisister")
+		self.SetIcon(wx.Icon('/usr/share/icons/Tango/22x22/status/network-idle.png', wx.BITMAP_TYPE_PNG), "Unisister")
  		
-		# Before we can even think about the actual synchronisation, we need to initialize
-		# the config object
-		# TODO: create actual object
-		self._config = UnisisterConfiguration()
-		
- 		# Create Timer-object, and keep it, as it's necessarry to let it function properly (GBC?)
+ 		# Create Timer-object, and keep it, as it's necessarry to let in function properly (GBC?)
  		self.timer = wx.Timer(self, UnisisterTaskBar.ID_SYNCH)
  		self.Synchronisation(None)
  		
@@ -132,7 +128,7 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 	
 	def Synchronisation(self, evt):
 		if not UnisisterThread.is_bussy():
-			UnisisterThread(self._config).start()
+			UnisisterThread(self).start()
 		else:
 			print _("We are already bussy synchronising!")
 	
@@ -142,14 +138,14 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 	def AboutUnisister(self, evt):
 		info = wx.AboutDialogInfo()
 		info.Name = "Unisister"
-		info.Version = cfg.VERSION
+		info.Version = config.VERSION
 		info.Copyright = "(C) 2013 Online - Urbanus"
 		info.Icon = wx.Icon('favicon.ico', wx.BITMAP_TYPE_ICO)
 		info.Description = "The sister of Unison.\n" + _("Unisister is a tool to automatically synchronize your directory with a central directory, using Unison.")
 		info.WebSite = ("http://www.Online-Urbanus.be", "Online - Urbanus")
 		info.Developers = ["Paretje"]
 		try:
-			info.License = open(cfg.LICENSE_LOCATION).read()
+			info.License = open(config.LICENSE_LOCATION).read()
 		except Exception:
 			info.License = _("Released under the terms of the GNU General Public License Version 3 \nSee http://www.gnu.org/licenses/gpl.html for more details.")
 		wx.AboutBox(info)
@@ -163,7 +159,7 @@ def _set_localisation():
 		locale.setlocale (locale.LC_ALL, "")
 	
 	gettext.textdomain('unisister')
-	gettext.bindtextdomain('unisister', cfg.LOCALEDIR)
+	gettext.bindtextdomain('unisister', config.LOCALEDIR)
 
 if __name__ == "__main__":
 	app = wx.App(False)
