@@ -1,7 +1,7 @@
 # Unisister
 # Copyright: (C) 2013 Online - Urbanus
 # Website: http://www.Online-Urbanus.be
-# Last modified: 26/04/2013 by Paretje
+# Last modified: 27/04/2013 by Paretje
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,35 +30,64 @@ import subprocess
 
 import os
 
+def error_dialog(message):
+	dlg = wx.MessageDialog(None, message, 'Error', wx.OK | wx.ICON_ERROR)
+	dlg.ShowModal()
+	dlg.Destroy()
+
+def get_icon(name, large=False):
+	# TODO: use at least os.path.join
+	# Even better would be to use, at least on linux, a more general system
+	# to get the right icon (so we can use theme-specific icons!)
+	if large:
+		return wx.Icon(config.ICON_LOCATION_LARGE + '/' + name + '.png',
+			wx.BITMAP_TYPE_PNG)
+	else:
+		return wx.Icon(config.ICON_LOCATION + '/' + name + '.png',
+			wx.BITMAP_TYPE_PNG)
+
 class UnisisterThread(threading.Thread):
 	_bussy = False
 	
 	def __init__(self, task_bar):
 		threading.Thread.__init__(self)
 		# TODO
-		# Daemon threads are abruptly stopped at shutdown. Their resources
-		# (such as open files, database transactions, etc.) may not be
-		# released properly. If you want your threads to stop gracefully,
-		# make them non-daemonic and use a suitable signalling mechanism
-		# such as an Event.
+		# Daemon threads are abruptly stopped at shutdown. Their
+		# resources (such as open files, database transactions, etc.)
+		# may not be released properly. If you want your threads to stop
+		# gracefully, make them non-daemonic and use a suitable
+		# signalling mechanism such as an Event.
 		self.deamon = False
 		self.task_bar = task_bar
 	
 	def run(self):
 		UnisisterThread._bussy = True
 		# TODO: MVC!! + is absolute path avoidable?
-		self.task_bar.SetIcon(wx.Icon('/usr/share/icons/Tango/22x22/status/network-transmit-receive.png', wx.BITMAP_TYPE_PNG), "Unisister")
+		self.task_bar.SetIcon(get_icon(config.ICON_BUSSY), "Unisister")
 		
-		# In Python 3.3, subprocess.DEVNULL has been added, so use this is available
+		# In Python 3.3, subprocess.DEVNULL has been added, so use this
+		# is available
 		try: 
 			devnull = subprocess.DEVNULL
 		except AttributeError: 
 			devnull = open(os.devnull, 'w')
 		
-		server = 'ssh://' + self.task_bar.config.Read('server_ip') + '/' + self.task_bar.config.Read('server_location')
-		local = self.task_bar.config.Read('local_location')
-		subprocess.call(["unison", server, local, "-batch", "-prefer", server])
-		self.task_bar.SetIcon(wx.Icon('/usr/share/icons/Tango/22x22/status/network-idle.png', wx.BITMAP_TYPE_PNG), "Unisister")
+		# Start backend
+		if self.task_bar.config.Read('backend') == 'csync':
+			wx.CallAfter(error_dialog, "Using csync as a backend is not supported by the current version of Unisister yet.")
+		else:
+			# Test if the user has set a specific unison executable
+			if self.task_bar.config.Read('backend_location') != "":
+				unison = self.task_bar.config.Read('backend_location')
+			else:
+				unison = 'unison'
+			
+			# Start the unison process
+			server = 'ssh://' + self.task_bar.config.Read('server_ip') + '/' + self.task_bar.config.Read('server_location')
+			local = self.task_bar.config.Read('local_location')
+			subprocess.call(["unison", server, local, "-batch", "-prefer", server])
+		
+		self.task_bar.SetIcon(get_icon(config.ICON_IDLE), "Unisister")
 		UnisisterThread._bussy = False
 	
 	# Not very Pythonic, but a property can't be static, and I don't want
@@ -79,8 +108,7 @@ class UnisisterTaskBar(wx.TaskBarIcon):
  		self.config = wx.Config('unisister')
  		
 		# Set the icon of Unisister
-		# Temporally, this is the UGent Minerva favicon, due to a lack of official logo
-		self.SetIcon(wx.Icon('/usr/share/icons/Tango/22x22/status/network-idle.png', wx.BITMAP_TYPE_PNG), "Unisister")
+		self.SetIcon(get_icon(config.ICON_IDLE), "Unisister")
  		
  		# Create Timer-object, and keep it, as it's necessarry to let in function properly (GBC?)
  		self.timer = wx.Timer(self, UnisisterTaskBar.ID_SYNCH)
@@ -140,7 +168,7 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 		info.Name = "Unisister"
 		info.Version = config.VERSION
 		info.Copyright = "(C) 2013 Online - Urbanus"
-		info.Icon = wx.Icon('favicon.ico', wx.BITMAP_TYPE_ICO)
+		info.Icon = get_icon(config.ICON_IDLE, large=True)
 		info.Description = "The sister of Unison.\n" + _("Unisister is a tool to automatically synchronize your directory with a central directory, using Unison.")
 		info.WebSite = ("http://www.Online-Urbanus.be", "Online - Urbanus")
 		info.Developers = ["Paretje"]
