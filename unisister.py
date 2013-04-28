@@ -31,7 +31,7 @@ import subprocess
 import os
 
 def error_dialog(message):
-	dlg = wx.MessageDialog(None, message, 'Error', wx.OK | wx.ICON_ERROR)
+	dlg = wx.MessageDialog(None, message, _('Error'), wx.OK | wx.ICON_ERROR)
 	dlg.ShowModal()
 	dlg.Destroy()
 
@@ -45,6 +45,43 @@ def get_icon(name, large=False):
 	else:
 		return wx.Icon(config.ICON_LOCATION + '/' + name + '.png',
 			wx.BITMAP_TYPE_PNG)
+
+class UnisisterPreferences(wx.Frame):
+	def __init__(self):
+		wx.Frame.__init__(self, None, wx.ID_ANY, _("Unisister Preferences"))
+		panel = wx.Panel(self, wx.ID_ANY)
+		"""
+		main_sizer = wx.BoxSizer(wx.HORIZONTAL)
+		left_sizer = wx.BoxSizer(wx.VERTICAL)
+		right_sizer = wx.BoxSizer(wx.VERTICAL)
+		
+		left_sizer.Add(wx.StaticText(panel, label=_("IP of server:")), flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=10)
+		right_sizer.Add(wx.TextCtrl(self, value="Enter here your name"), flag=wx.ALL | wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL, border=10)
+		
+		main_sizer.Add(left_sizer1)
+		main_sizer.Add(right_sizer)
+		# TODO: difference with SetSizer
+		panel.SetSizerAndFit(main_sizer)
+		"""
+		form_box = wx.BoxSizer(wx.VERTICAL)
+		form = wx.FlexGridSizer(cols=2, vgap=5, hgap=50)
+		form.AddGrowableCol(1, 1)
+		
+		server_ip = wx.TextCtrl(panel)
+		form.Add(wx.StaticText(panel, label=_("IP of server:")), flag=wx.ALIGN_CENTER_VERTICAL)
+		form.Add(server_ip, flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+		
+		server_location = wx.TextCtrl(panel)
+		form.Add(wx.StaticText(panel, label=_("Location on server:")), flag=wx.ALIGN_CENTER_VERTICAL)
+		form.Add(server_location, flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+		
+		local_location = wx.TextCtrl(panel)
+		form.Add(wx.StaticText(panel, label=_("Local folder:")), flag=wx.ALIGN_CENTER_VERTICAL)
+		form.Add(local_location, flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+		
+		form_box.Add(form, 0, flag=wx.EXPAND|wx.ALL, border=10)
+		form_box.Add(wx.StaticText(panel), 1)
+		panel.SetSizerAndFit(form_box)
 
 class UnisisterThread(threading.Thread):
 	_bussy = False
@@ -74,7 +111,7 @@ class UnisisterThread(threading.Thread):
 		
 		# Start backend
 		if self.task_bar.config.Read('backend') == 'csync':
-			wx.CallAfter(error_dialog, "Using csync as a backend is not supported by the current version of Unisister yet.")
+			wx.CallAfter(error_dialog, _("Using csync as a backend is not supported by the current version of Unisister yet."))
 		else:
 			# Test if the user has set a specific unison executable
 			if self.task_bar.config.Read('backend_location') != "":
@@ -161,7 +198,8 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 			print _("We are already bussy synchronising!")
 	
 	def ShowPreferences(self, evt):
-		pass
+		UnisisterPreferences().Show()
+		
 	
 	def AboutUnisister(self, evt):
 		info = wx.AboutDialogInfo()
