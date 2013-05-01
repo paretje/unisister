@@ -47,41 +47,74 @@ def get_icon(name, large=False):
 			wx.BITMAP_TYPE_PNG)
 
 class UnisisterPreferences(wx.Frame):
-	def __init__(self):
+	def __init__(self, task_bar):
 		wx.Frame.__init__(self, None, wx.ID_ANY, _("Unisister Preferences"))
+		self.task_bar = task_bar
 		panel = wx.Panel(self, wx.ID_ANY)
-		"""
-		main_sizer = wx.BoxSizer(wx.HORIZONTAL)
-		left_sizer = wx.BoxSizer(wx.VERTICAL)
-		right_sizer = wx.BoxSizer(wx.VERTICAL)
 		
-		left_sizer.Add(wx.StaticText(panel, label=_("IP of server:")), flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL, border=10)
-		right_sizer.Add(wx.TextCtrl(self, value="Enter here your name"), flag=wx.ALL | wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL, border=10)
-		
-		main_sizer.Add(left_sizer1)
-		main_sizer.Add(right_sizer)
-		# TODO: difference with SetSizer
-		panel.SetSizerAndFit(main_sizer)
-		"""
+		# TODO: better names?
+		# TODO: Password?
+		# TODO: Add hover texts where needed
 		form_box = wx.BoxSizer(wx.VERTICAL)
 		form = wx.FlexGridSizer(cols=2, vgap=5, hgap=50)
+		form_save = wx.BoxSizer(wx.HORIZONTAL)
 		form.AddGrowableCol(1, 1)
 		
-		server_ip = wx.TextCtrl(panel)
-		form.Add(wx.StaticText(panel, label=_("IP of server:")), flag=wx.ALIGN_CENTER_VERTICAL)
-		form.Add(server_ip, flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+		self.server_address = wx.TextCtrl(panel, value=self.task_bar.config.Read('server_address'))
+		form.Add(wx.StaticText(panel, label=_("Server address:")), flag=wx.ALIGN_CENTER_VERTICAL)
+		form.Add(self.server_address, flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
 		
-		server_location = wx.TextCtrl(panel)
+		self.server_username = wx.TextCtrl(panel, value=self.task_bar.config.Read('server_username'))
+		form.Add(wx.StaticText(panel, label=_("Server username:")), flag=wx.ALIGN_CENTER_VERTICAL)
+		form.Add(self.server_username, flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+		
+		self.server_location = wx.TextCtrl(panel, value=self.task_bar.config.Read('server_location'))
 		form.Add(wx.StaticText(panel, label=_("Location on server:")), flag=wx.ALIGN_CENTER_VERTICAL)
-		form.Add(server_location, flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+		form.Add(self.server_location, flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
 		
-		local_location = wx.TextCtrl(panel)
+		self.local_location = wx.FilePickerCtrl(panel, path=self.task_bar.config.Read('local_location'))
 		form.Add(wx.StaticText(panel, label=_("Local folder:")), flag=wx.ALIGN_CENTER_VERTICAL)
-		form.Add(local_location, flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+		form.Add(self.local_location, flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+		
+		form.Add(wx.StaticText(panel, label=_("Backend:")), flag=wx.ALIGN_CENTER_VERTICAL)
+		form.Add(wx.StaticText(panel, label=_("Future option")), flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+		
+		self.backend_location_server = wx.TextCtrl(panel, value=self.task_bar.config.Read('backend_location_server'))
+		form.Add(wx.StaticText(panel, label=_("Backend location on server:")), flag=wx.ALIGN_CENTER_VERTICAL)
+		form.Add(self.backend_location_server, flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+		
+		self.backend_location_local = wx.FilePickerCtrl(panel, path=self.task_bar.config.Read('backend_location_local'))
+		form.Add(wx.StaticText(panel, label=_("Backend location on local machine:")), flag=wx.ALIGN_CENTER_VERTICAL)
+		form.Add(self.backend_location_local, flag=wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+		
+		# TODO: Add space between the two buttons
+		form_save.Add(wx.Button(panel, wx.ID_CANCEL, _("Cancel")))
+		form_save.Add(wx.Button(panel, wx.ID_OK, _("OK")))
 		
 		form_box.Add(form, 0, flag=wx.EXPAND|wx.ALL, border=10)
 		form_box.Add(wx.StaticText(panel), 1)
+		form_box.Add(form_save, flag=wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, border=10)
 		panel.SetSizerAndFit(form_box)
+		
+		# Default width is to small, so only use height
+		self.SetSize((500, self.GetBestSizeTuple()[1]))
+		
+		self.Bind(wx.EVT_BUTTON, self.OnCancel, id=wx.ID_CANCEL)
+		self.Bind(wx.EVT_BUTTON, self.OnOK, id=wx.ID_OK)
+	
+	def OnCancel(self, evt):
+		self.Close(True)
+	
+	def OnOK(self, evt):
+		self.task_bar.config.Write('server_address', self.server_address.GetValue())
+		self.task_bar.config.Write('server_username', self.server_username.GetValue())
+		self.task_bar.config.Write('server_location', self.server_location.GetValue())
+		self.task_bar.config.Write('local_location', self.local_location.GetPath())
+		#self.task_bar.config.Write('backend', self.backend.GetValue())
+		self.task_bar.config.Write('backend_location_server', self.backend_location_server.GetValue())
+		self.task_bar.config.Write('backend_location_local', self.backend_location_local.GetPath())
+		self.task_bar.config.Flush()
+		self.Close(True)
 
 class UnisisterThread(threading.Thread):
 	_bussy = False
@@ -113,16 +146,28 @@ class UnisisterThread(threading.Thread):
 		if self.task_bar.config.Read('backend') == 'csync':
 			wx.CallAfter(error_dialog, _("Using csync as a backend is not supported by the current version of Unisister yet."))
 		else:
-			# Test if the user has set a specific unison executable
-			if self.task_bar.config.Read('backend_location') != "":
-				unison = self.task_bar.config.Read('backend_location')
+			arguments = []
+			
+			# Test if the user has set a username
+			if self.task_bar.config.Read('server_username') != "":
+				server_address = self.task_bar.config.Read('server_username') + '@' + self.task_bar.config.Read('server_address')
 			else:
-				unison = 'unison'
+				server_address = self.task_bar.config.Read('server_address')
+			
+			# Test if the user has set a specific server unison executable
+			if self.task_bar.config.Read('backend_location_server') != "":
+				arguments += ['-servercmd', self.task_bar.config.Read('backend_location_server')]
+			
+			# Test if the user has set a specific local unison executable
+			if self.task_bar.config.Read('backend_location_local') != "":
+				unison_local = self.task_bar.config.Read('backend_location_local')
+			else:
+				unison_local = 'unison'
 			
 			# Start the unison process
-			server = 'ssh://' + self.task_bar.config.Read('server_ip') + '/' + self.task_bar.config.Read('server_location')
+			server = 'ssh://' + server_address + '/' + self.task_bar.config.Read('server_location')
 			local = self.task_bar.config.Read('local_location')
-			subprocess.call(["unison", server, local, "-batch", "-prefer", server])
+			subprocess.call([unison_local, server, local, '-batch', '-prefer', server] + arguments)
 		
 		self.task_bar.SetIcon(get_icon(config.ICON_IDLE), "Unisister")
 		UnisisterThread._bussy = False
@@ -198,7 +243,7 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 			print _("We are already bussy synchronising!")
 	
 	def ShowPreferences(self, evt):
-		UnisisterPreferences().Show()
+		UnisisterPreferences(self).Show()
 		
 	
 	def AboutUnisister(self, evt):
