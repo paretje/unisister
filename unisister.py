@@ -220,7 +220,7 @@ class UnisisterThread(threading.Thread):
 	
 	def no_configuration(self):
 		self.task_bar.timer.Stop()
-		error_dialog(_("Unisister has not been properly configurated. Open the preferences and fill in the necesarry configuration."))
+		error_dialog(_("Unisister has not been properly configurated. Open the preferences and fill in the necesarry and correct configuration."))
 		self.task_bar.ShowPreferences(None)
 	
 	# Not very Pythonic, but a property can't be static, and I don't want
