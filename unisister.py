@@ -1,7 +1,7 @@
 # Unisister
 # Copyright: (C) 2013 Online - Urbanus
 # Website: http://www.Online-Urbanus.be
-# Last modified: 01/05/2013 by Paretje
+# Last modified: 02/05/2013 by Paretje
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -170,7 +170,7 @@ class UnisisterThread(threading.Thread):
 	def run(self):
 		UnisisterThread._bussy = True
 		# TODO: MVC!! + is absolute path avoidable?
-		self.task_bar.SetIcon(get_icon(config.ICON_BUSSY), "Unisister")
+		self.task_bar.SetIcon(get_icon(config.ICON_BUSSY), "Unisister\nSynchronizing")
 		
 		# In Python 3.3, subprocess.DEVNULL has been added, so use this
 		# is available
@@ -214,9 +214,17 @@ class UnisisterThread(threading.Thread):
 		else:
 			unison_local = 'unison'
 		
+		# Prepare a file to 
+		output= tempfile.TemporaryFile()
+		
 		# Start the unison process
 		server = 'ssh://' + server_address + '/' + self.task_bar.config.Read('server_location')
-		subprocess.call([unison_local, server, self.task_bar.config.Read('local_location'), '-batch', '-prefer', server] + arguments)
+		subprocess.call([unison_local, server, self.task_bar.config.Read('local_location'), '-batch', '-prefer', server] + arguments, stdout=output)
+		
+		# TODO: Check to make this more system-independent
+		import pynotify
+		pynotify.init("Basics")
+		pynotify.Notification("Synchronisation completed", output.readlines()[-1:]).show()
 	
 	def no_configuration(self):
 		self.task_bar.timer.Stop()
@@ -257,9 +265,14 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 		self.Bind(wx.EVT_MENU, self.ShowPreferences, id=wx.ID_PROPERTIES)
 		self.Bind(wx.EVT_MENU, self.AboutUnisister, id=wx.ID_ABOUT)
 		
+		# TODO: Use object instead of id?
+		# Why isn't it possible to bind to the Timer object? Is this a
+		# general problem, or only with the timer?
+		# http://www.blog.pythonlibrary.org/2009/08/25/wxpython-using-wx-timers/
+		self.Bind(wx.EVT_TIMER, self.Synchronisation, id=UnisisterTaskBar.ID_SYNCH)
+		
  		# Create Timer-object, and keep it, as it's necessarry to let in function properly (GBC?)
  		self.timer = wx.Timer(self, UnisisterTaskBar.ID_SYNCH)
-		self.timer.Bind(wx.EVT_TIMER, self.Synchronisation, id=UnisisterTaskBar.ID_SYNCH)
 		self.start_timer()
  
 	def CreatePopupMenu(self, evt=None):
