@@ -25,6 +25,7 @@ import locale
 import threading
 import subprocess
 import os
+import tempfile
 
 import config
 
@@ -175,9 +176,9 @@ class UnisisterThread(threading.Thread):
 		# In Python 3.3, subprocess.DEVNULL has been added, so use this
 		# is available
 		try: 
-			devnull = subprocess.DEVNULL
+			self.devnull = subprocess.DEVNULL
 		except AttributeError: 
-			devnull = open(os.devnull, 'w')
+			self.devnull = open(os.devnull, 'w')
 		
 		# Start backend
 		if self.task_bar.config.Read('backend') == 'csync':
@@ -214,17 +215,19 @@ class UnisisterThread(threading.Thread):
 		else:
 			unison_local = 'unison'
 		
-		# Prepare a file to 
-		output= tempfile.TemporaryFile()
 		
 		# Start the unison process
+		output = tempfile.TemporaryFile(mode='w+t')
 		server = 'ssh://' + server_address + '/' + self.task_bar.config.Read('server_location')
-		subprocess.call([unison_local, server, self.task_bar.config.Read('local_location'), '-batch', '-prefer', server] + arguments, stdout=output)
+		subprocess.call([unison_local, server, self.task_bar.config.Read('local_location'), '-batch', '-prefer', server] + arguments, stdout=self.devnull, stderr=output)
 		
-		# TODO: Check to make this more system-independent
-		import pynotify
-		pynotify.init("Basics")
-		pynotify.Notification("Synchronisation completed", output.readlines()[-1:]).show()
+		#
+		output.seek(0)
+		last_line = output.readlines()[-1].strip()
+		if last_line != 'Nothing to do: replicas have not changed since last sync.':
+			import pynotify
+			pynotify.init("Basics")
+			pynotify.Notification("Synchronisation completed", last_line).show()
 	
 	def no_configuration(self):
 		self.task_bar.timer.Stop()
