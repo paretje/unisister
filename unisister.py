@@ -221,10 +221,11 @@ class UnisisterThread(threading.Thread):
 		server = 'ssh://' + server_address + '/' + self.task_bar.config.Read('server_location')
 		subprocess.call([unison_local, server, self.task_bar.config.Read('local_location'), '-batch', '-prefer', server] + arguments, stdout=self.devnull, stderr=output)
 		
-		#
+		# Look if there is something to tell ...
 		output.seek(0)
 		last_line = output.readlines()[-1].strip()
 		if last_line != 'Nothing to do: replicas have not changed since last sync.':
+			# TODO: use a more cross-platform solution
 			import pynotify
 			pynotify.init("Basics")
 			pynotify.Notification("Synchronisation completed", last_line).show()
