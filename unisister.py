@@ -217,6 +217,7 @@ class UnisisterThread(threading.Thread):
 		
 		
 		# Start the unison process
+		# TODO: handle exceptions
 		output = tempfile.TemporaryFile(mode='w+t')
 		server = 'ssh://' + server_address + '/' + self.task_bar.config.Read('server_location')
 		subprocess.call([unison_local, server, self.task_bar.config.Read('local_location'), '-batch', '-prefer', server] + arguments, stdout=self.devnull, stderr=output)
