@@ -1,7 +1,7 @@
 # Unisister
 # Copyright: (C) 2013 Online - Urbanus
 # Website: http://www.Online-Urbanus.be
-# Last modified: 02/05/2013 by Paretje
+# Last modified: 19/06/2013 by Paretje
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -50,6 +50,13 @@ def get_icon(name, large=False):
 	else:
 		return wx.Icon(os.path.join(config.ICON_LOCATION,
 			name + '.png'), wx.BITMAP_TYPE_PNG)
+
+def show_notification(title, description=None):
+	# TODO: use a more cross-platform solution
+	# TODO: description optional?
+	import pynotify
+	pynotify.init("Basics")		# TODO: Correct?
+	pynotify.Notification(title, description).show()
 
 class UnisisterPreferences(wx.Frame):
 	backends = ['unison']
@@ -189,9 +196,7 @@ class UnisisterThread(threading.Thread):
 		self.task_bar.SetIcon(get_icon(config.ICON_IDLE), "Unisister")
 		UnisisterThread._bussy = False
 	
-	def unison_backend(self):
-		arguments = []
-		
+	def unison_backend(self, prefer='', arguments=[]):
 		# Test if the needed configuration is set
 		if self.task_bar.config.Read('server_address') == "" \
 		or self.task_bar.config.Read('local_location') == "" \
@@ -215,21 +220,33 @@ class UnisisterThread(threading.Thread):
 		else:
 			unison_local = 'unison'
 		
+		# Server address
+		server = 'ssh://' + server_address + '/' + self.task_bar.config.Read('server_location')
+		
+		# Test if there is a specific prefer argument set given
+		if prefer == '':
+			prefer = server
 		
 		# Start the unison process
 		# TODO: handle exceptions
 		output = tempfile.TemporaryFile(mode='w+t')
-		server = 'ssh://' + server_address + '/' + self.task_bar.config.Read('server_location')
 		subprocess.call([unison_local, server, self.task_bar.config.Read('local_location'), '-batch', '-prefer', server] + arguments, stdout=self.devnull, stderr=output)
 		
 		# Look if there is something to tell ...
 		output.seek(0)
 		last_line = output.readlines()[-1].strip()
-		if last_line != 'Nothing to do: replicas have not changed since last sync.':
-			# TODO: use a more cross-platform solution
-			import pynotify
-			pynotify.init("Basics")
-			pynotify.Notification("Synchronisation completed", last_line).show()
+		if last_line == 'Nothing to do: replicas have not changed since last sync.':
+			pass
+		elif last_line == 'or invoke Unison with -ignorearchives flag.':
+			# Somehow, the archive files have got corrupted. Try to fix it.
+			print _("Somehow, the archive files have got corrupted. We are trying to fix it!")
+			# TODO: do this better!
+			# TODO: make it optional, as it could be a risque?
+			self.unison_backend(prefer='newer', arguments=['-ignorearchives'])
+		elif last_line[0:12] == 'Fatal error:':
+			show_notification(last_line[13:])
+		else:
+			show_notification("Synchronisation completed", description=last_line)
 	
 	def no_configuration(self):
 		self.task_bar.timer.Stop()
