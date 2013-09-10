@@ -243,10 +243,17 @@ class UnisisterThread(threading.Thread):
 			# TODO: do this better!
 			# TODO: make it optional, as it could be a risque?
 			self.unison_backend(prefer='newer', arguments=['-ignorearchives'])
+		elif last_line == 'Please delete lock files as appropriate and try again.':
+			lock_file = re.sub(r'The file (.+) on host .* should be deleted', r'\1', output.readlines()[-2].strip())
+			os.unlink(lock_file)
+			# TODO: Delete lockfile automatically
+			#print _("There is a lockfile blocking unison.")
+			#print lock_file + " deleted"
+			show_notification("There is a lockfile blocking unison.", description="Please delete " + lock_file)
 		elif last_line[0:12] == 'Fatal error:':
 			show_notification(last_line[13:])
 		else:
-			show_notification("Synchronisation completed", description=last_line)
+			show_notification(_("Synchronisation completed"), description=last_line)
 	
 	def no_configuration(self):
 		self.task_bar.timer.Stop()
@@ -287,10 +294,6 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 		self.Bind(wx.EVT_MENU, self.ShowPreferences, id=wx.ID_PROPERTIES)
 		self.Bind(wx.EVT_MENU, self.AboutUnisister, id=wx.ID_ABOUT)
 		
-		# TODO: Use object instead of id?
-		# Why isn't it possible to bind to the Timer object? Is this a
-		# general problem, or only with the timer?
-		# http://www.blog.pythonlibrary.org/2009/08/25/wxpython-using-wx-timers/
 		self.Bind(wx.EVT_TIMER, self.Synchronisation, id=UnisisterTaskBar.ID_SYNCH)
 		
  		# Create Timer-object, and keep it, as it's necessarry to let in function properly (GBC?)
