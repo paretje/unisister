@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Unisister
 # Copyright: (C) 2013 Online - Urbanus
 # Website: http://www.Online-Urbanus.be
@@ -67,7 +68,7 @@ class UnisisterPreferences(wx.Frame):
 		panel = wx.Panel(self, wx.ID_ANY)
 		
 		# TODO: better names?
-		# TODO: Password?
+		# TODO: Passwords using gpg-agent?
 		# TODO: Add hover texts where needed
 		form_box = wx.BoxSizer(wx.VERTICAL)
 		form = wx.FlexGridSizer(cols=2, vgap=5, hgap=25)
@@ -181,7 +182,7 @@ class UnisisterThread(threading.Thread):
 		self.task_bar.SetIcon(get_icon(config.ICON_BUSSY), "Unisister\nSynchronizing")
 		
 		# In Python 3.3, subprocess.DEVNULL has been added, so use this
-		# is available
+		# if available
 		try: 
 			self.devnull = subprocess.DEVNULL
 		except AttributeError: 
