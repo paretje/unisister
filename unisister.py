@@ -53,10 +53,8 @@ def get_icon(name, large=False):
 			name + '.png'), wx.BITMAP_TYPE_PNG)
 
 def show_notification(title, description=None):
-	# TODO: use a more cross-platform solution
-	# TODO: description optional?
 	import pynotify
-	pynotify.init("Basics")		# TODO: Correct?
+	pynotify.init("Unisister")
 	pynotify.Notification(title, description).show()
 
 class UnisisterPreferences(wx.Frame):
@@ -297,7 +295,7 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 		
 		self.Bind(wx.EVT_TIMER, self.Synchronisation, id=UnisisterTaskBar.ID_SYNCH)
 		
- 		# Create Timer-object, and keep it, as it's necessarry to let in function properly (GBC?)
+ 		# Create Timer-object, and keep it, as it's necessarry to let it function properly (GBC?)
  		self.timer = wx.Timer(self, UnisisterTaskBar.ID_SYNCH)
 		self.start_timer()
  
