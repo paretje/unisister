@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # Unisister
-# Copyright: (C) 2013 Online - Urbanus
+# Copyright: (C) 2013-2014 Online - Urbanus
 # Website: http://www.Online-Urbanus.be
-# Last modified: 19/06/2013 by Paretje
+# Last modified: 08/05/2014 by Paretje
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -350,7 +350,7 @@ class UnisisterTaskBar(wx.TaskBarIcon):
 		if self.config.ReadInt('interval') > 0:
 			self.timer.Start(self.config.ReadInt('interval')*1000)
 		else:
-			self.timer.Start(120*1000)
+			self.timer.Stop()
 
 def _set_localisation():
 	# Code based on the code in system-config-printer v1.3.7
