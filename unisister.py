@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # Unisister
-# Copyright: (C) 2013 Online - Urbanus
+# Copyright: (C) 2013-2014 Online - Urbanus
 # Website: http://www.Online-Urbanus.be
-# Last modified: 19/06/2013 by Paretje
+# Last modified: 24/05/2014 by Paretje
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -195,7 +195,7 @@ class UnisisterThread(threading.Thread):
 		self.task_bar.SetIcon(get_icon(config.ICON_IDLE), "Unisister")
 		UnisisterThread._bussy = False
 	
-	def unison_backend(self, prefer='', arguments=[]):
+	def unison_backend(self, prefer='', arguments=['-times']):
 		# Test if the needed configuration is set
 		if self.task_bar.config.Read('server_address') == "" \
 		or self.task_bar.config.Read('local_location') == "" \
