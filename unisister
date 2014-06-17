@@ -1,8 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # Unisister
 # Copyright: (C) 2013-2014 Online - Urbanus
 # Website: http://www.Online-Urbanus.be
-# Last modified: 20/05/2014 by Paretje
+# Last modified: 17/06/2014 by Paretje
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,22 +23,35 @@ import backends
 from gi.repository import Gtk
 from gi.repository import Notify
 
+import os
+import threading
+import configparser
+
 import gettext
 from gettext import gettext as _
 import locale
 
 class UnisisterStatusIcon(Gtk.StatusIcon):
+	backends = {'unison', backends.UnisonBackend}
+
 	def __init__(self):
 		Gtk.StatusIcon.__init__(self)
 		self.set_from_icon_name(config.ICON_IDLE)
 		# TODO: Use of name and title? set_visisble?
 		self.set_name('unisister')
 		self.set_title('Unisister')
+
+		self.init_menu()
 		self.connect('popup-menu', self.popup_menu)
 		#self.connect('query-tooltip', #return Gtk.Tooltip object)
 		#self.connect('activate', self.menu.popup(None, None, Gtk.StatusIcon.position_menu, self, 0, Gtk.get_current_event_time()))
 
-		# Initialize menu
+		self.bussy = set()
+		self.last_sync = {}
+		self.parse_config()
+		self.timer_tick()
+
+	def init_menu(self):
 		self.menu = Gtk.Menu()
 
 		self.menu_item_sync = Gtk.MenuItem(_("Force Synchronisation"))
@@ -75,9 +88,35 @@ class UnisisterStatusIcon(Gtk.StatusIcon):
 		dialog.run()
 		dialog.destroy()
 
+	def parse_config(self):
+		config_parser = configparser.ConfigParser(allow_no_value=True)
+		config_parser.read(os.path.expanduser(config.USER_CONFIG))
+		sync_config = {}
+		for section in config_parser.sections():
+			sync_config[section] = dict(config_parser.items(section))
+		self.sync_config = sync_config
 
-	def synchronize(task):
-		backend.start_backend(self, task)
+	def synchronize_all(self):
+		sync_config = self.sync_config
+		for sync in sync_config:
+			self._start_synchronization(sync, sync_config[sync])
+
+	def timer_tick(self):
+		sync_config = self.sync_config
+		for sync in sync_config:
+			# TODO: Synchronization?
+			self.last_sync[sync] += 1
+			if sync_config[sync]['interval'] > 0 and (self.last_sync[sync] == None or self.last_sync[sync] > interval):
+				_start_synchronization(section, sync_config[section])
+		threading.Timer(config.TIMER_TICK, self.timer_tick)
+
+	def _start_synchronization(self, sync, sync_config):
+		# TODO: synchronize
+		if not self.bussy[sync]:
+			self.bussy[sync] = True
+			self.last_sync[sync] = 0
+			backend = backends[sync_config['backend']](self, sync_config)
+			threading.Thread(target=backend.sync)
 	
 	def sync_started(self):
 		self.set_from_icon_name(config.ICON_BUSSY)

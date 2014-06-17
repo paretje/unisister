@@ -1,8 +1,7 @@
-#!/usr/bin/python
 # Unisister
 # Copyright: (C) 2013-2014 Online - Urbanus
 # Website: http://www.Online-Urbanus.be
-# Last modified: 20/05/2014 by Paretje
+# Last modified: 17/06/2014 by Paretje
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,27 +16,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import config
+class UnisonBackend:
+	def __init__(self, config):
+		self.config = config
 
-import threading
-
-def start_unison_backend(icon, task):
-	UnisonBackend.tasks.add(task)
-	if len(UnisonBackend.tasks) > 0:
-		print _("There can only be one unison backend running at a time. It's in the queue.")
-	else:
-		UnisonBackend(icon).start()
-
-backends = {'unison', start_unison_backend}
-def start_backend(icon, task):
-	backends[task](icon, task)
-
-class UnisonBackend(threading.Thread):
-	tasks = {}
-	
-	def __init__(self, icon):
-		threading.Thread.__init__(self)
-		self.icon = icon
-
-	def run(self):
+	def sync(self):
 		pass
