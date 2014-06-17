@@ -31,11 +31,21 @@ import gettext
 from gettext import gettext as _
 import locale
 
+# TODO: Sent events when bussy updated
+class UnisisterModel:
+	def __init__(self, sync_config):
+		self.sync_config = {}
+		self.last_sync = {}
+		self.bussy = {}
+
 class UnisisterStatusIcon(Gtk.StatusIcon):
 	backends = {'unison', backends.UnisonBackend}
 
-	def __init__(self):
+	def __init__(self, model):
 		Gtk.StatusIcon.__init__(self)
+
+		self.model = model
+
 		self.set_from_icon_name(config.ICON_IDLE)
 		# TODO: Use of name and title? set_visisble?
 		self.set_name('unisister')
@@ -46,9 +56,6 @@ class UnisisterStatusIcon(Gtk.StatusIcon):
 		#self.connect('query-tooltip', #return Gtk.Tooltip object)
 		#self.connect('activate', self.menu.popup(None, None, Gtk.StatusIcon.position_menu, self, 0, Gtk.get_current_event_time()))
 
-		self.bussy = set()
-		self.last_sync = {}
-		self.parse_config()
 		self.timer_tick()
 
 	def init_menu(self):
@@ -61,7 +68,7 @@ class UnisisterStatusIcon(Gtk.StatusIcon):
 		#self.menu_item_pref.connect('activate', self.preferences)
 
 		self.menu_item_about = Gtk.MenuItem(_("About"))
-		self.menu_item_about.connect('activate', self.show_about_dialog)
+		self.menu_item_about.connect('activate', show_about_dialog)
 
 		self.menu_item_quit = Gtk.MenuItem(_("Quit"))
 		self.menu_item_quit.connect('activate', Gtk.main_quit)
@@ -75,46 +82,25 @@ class UnisisterStatusIcon(Gtk.StatusIcon):
 	def popup_menu(self, icon, button, time):
 		self.menu.popup(None, None, Gtk.StatusIcon.position_menu, self, button, time)
 
-	def show_about_dialog(self, widget):
-		dialog = Gtk.AboutDialog()
-
-		dialog.set_program_name("Unisister")
-		dialog.set_logo_icon_name(config.ICON_IDLE)
-		dialog.set_comments("The sister of Unison.\n" + _("Unisister is a tool to automatically synchronize your directory with a central directory, using Unison."))
-		dialog.set_version(config.VERSION)
-		dialog.set_authors(config.AUTHORS)
-		dialog.set_license_type(Gtk.License.GPL_3_0)
-
-		dialog.run()
-		dialog.destroy()
-
-	def parse_config(self):
-		config_parser = configparser.ConfigParser(allow_no_value=True)
-		config_parser.read(os.path.expanduser(config.USER_CONFIG))
-		sync_config = {}
-		for section in config_parser.sections():
-			sync_config[section] = dict(config_parser.items(section))
-		self.sync_config = sync_config
-
 	def synchronize_all(self):
-		sync_config = self.sync_config
+		sync_config = self.model.sync_config
 		for sync in sync_config:
 			self._start_synchronization(sync, sync_config[sync])
 
 	def timer_tick(self):
-		sync_config = self.sync_config
+		sync_config = self.model.sync_config
 		for sync in sync_config:
 			# TODO: Synchronization?
-			self.last_sync[sync] += 1
-			if sync_config[sync]['interval'] > 0 and (self.last_sync[sync] == None or self.last_sync[sync] > interval):
+			self.model.last_sync[sync] += 1
+			if sync_config[sync]['interval'] > 0 and (self.model.last_sync[sync] == None or self.model.last_sync[sync] > interval):
 				_start_synchronization(section, sync_config[section])
 		threading.Timer(config.TIMER_TICK, self.timer_tick)
 
 	def _start_synchronization(self, sync, sync_config):
 		# TODO: synchronize
-		if not self.bussy[sync]:
-			self.bussy[sync] = True
-			self.last_sync[sync] = 0
+		if not self.model.bussy[sync]:
+			self.model.bussy[sync] = True
+			self.model.last_sync[sync] = 0
 			backend = backends[sync_config['backend']](self, sync_config)
 			threading.Thread(target=backend.sync)
 	
@@ -127,6 +113,27 @@ class UnisisterStatusIcon(Gtk.StatusIcon):
 			Notify.Notification(_("Synchronisation completed"), message).show()
 		else:
 			Notify.Notification(_("Synchronisation was unsuccessful"), message).show()
+
+def show_about_dialog(widget):
+	dialog = Gtk.AboutDialog()
+
+	dialog.set_program_name("Unisister")
+	dialog.set_logo_icon_name(config.ICON_IDLE)
+	dialog.set_comments("The sister of Unison.\n" + _("Unisister is a tool to automatically synchronize your directory with a central directory, using Unison."))
+	dialog.set_version(config.VERSION)
+	dialog.set_authors(config.AUTHORS)
+	dialog.set_license_type(Gtk.License.GPL_3_0)
+
+	dialog.run()
+	dialog.destroy()
+
+def parse_config():
+	config_parser = configparser.ConfigParser(allow_no_value=True)
+	config_parser.read(os.path.expanduser(config.USER_CONFIG))
+	sync_config = {}
+	for section in config_parser.sections():
+		sync_config[section] = dict(config_parser.items(section))
+	return sync_config
 
 def set_localisation():
 	# Code based on the code in system-config-printer v1.3.7
@@ -142,6 +149,8 @@ def set_localisation():
 if __name__ == "__main__":
 	set_localisation()
 	Notify.init("Unisister")
-	status = UnisisterStatusIcon()
+	sync_config = parse_config()
+	model = UnisisterModel(sync_config)
+	status = UnisisterStatusIcon(model)
 	Gtk.main()
 	Notify.uninit();
