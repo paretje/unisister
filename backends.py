@@ -18,34 +18,49 @@
 
 import config
 
+import zope.event
+
 import os
 import tempfile
+import threading
 import subprocess
 import re
 
-class UnisonBackend:
-	def __init__(self, sync_config):
+class StateEvent:
+	def __init__(self, sync, state_code, data=None):
+		self.sync = sync
+		self.code = state_code
+		self.data = data
+
+class UnisonBackend(threading.Thread):
+	def __init__(self, sync, sync_config):
+		threading.Thread.__init__(self)
+		# Daemon threads are abruptly stopped at shutdown. Their
+		# resources (such as open files, database transactions, etc.)
+		# may not be released properly. If you want your threads to stop
+		# gracefully, make them non-daemonic and use a suitable
+		# signalling mechanism such as an Event.
+		self.deamon = False
+
+		self.sync = sync
 		self.sync_config = sync_config
 
-	def sync(self):
+	def run(self):
 		# TODO: handle exceptions
 		self._init_arguments()
 		self._sync()
-		result_code, data = self._interpret_output()
+		state = self._interpret_output()
 
 		# If archive is corrupt, synchronize again using -ignorearchives
-		if result_code == 'corrupt':
+		if state.code == 'corrupt':
 			self.arguments.append('-ignorearchives')
 			self._sync()
-			result_code, data = self._interpret_output()
+			state = self._interpret_output()
+		zope.event.notify(state)
 
-		# TODO: sent event to controller with result_code and data
-	
 	def _sync(self):
 		self.output = tempfile.TemporaryFile(mode='w+t')
-		print("Sync starts")
 		subprocess.call(['unison'] + self.arguments, stdout=config.DEVNULL, stderr=self.output)
-		print("Sync finished")
 
 	def _init_arguments(self):
 		# Test if the required configuration is set and valid
@@ -84,7 +99,7 @@ class UnisonBackend:
 		self.arguments.append('-times')
 
 		# Set unison executable location on the server
-		if 'sever_backend' in self.sync_config \
+		if 'server_backend_location' in self.sync_config \
 		and self.sync_config['server_backend_location'] != "":
 			self.arguments += ['-servercmd', self.sync_config['server_backend_location']]
 
@@ -92,16 +107,16 @@ class UnisonBackend:
 		self.output.seek(0)
 		last_line = self.output.readlines()[-1].strip()
 		if last_line == 'Nothing to do: replicas have not changed since last sync.':
-			return ('nothing', None)
+			return StateEvent(self.sync, 'nothing', None)
 		elif last_line == 'or invoke Unison with -ignorearchives flag.':
-			return ('corrupt')
+			return StateEvent(self.sync, 'corrupt')
 		elif last_line == 'Please delete lock files as appropriate and try again.':
 			lock_file = re.sub(r'The file (.+) on host .* should be deleted', r'\1', self.output.readlines()[-2].strip())
-			return ('lock', lock_file)
+			return StateEvent(self.sync, 'lock', lock_file)
 		elif last_line[0:12] == 'Fatal error:':
-			return ('error', last_line[13:])
+			return StateEvent(self.sync, 'error', last_line[13:])
 		else:
 			# TODO: interprete values?
-			return ('ok', last_line)
+			return StateEvent(self.sync, 'done', last_line)
 
 available = {'unison': UnisonBackend}
