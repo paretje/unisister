@@ -38,7 +38,7 @@ class UnisisterModel:
 		self.last_sync = {}
 		self.busy = set()
 
-class UnisisterController:
+class UnisisterBackendsController:
 	def __init__(self, model):
 		self.model = model
 
@@ -73,25 +73,25 @@ class UnisisterStatusIcon(Gtk.StatusIcon):
 		Gtk.StatusIcon.__init__(self)
 
 		self.model = model
-		self.controller = UnisisterController(model)
+		self.controller = UnisisterBackendsController(model)
 
 		self.set_from_icon_name(config.ICON_IDLE)
 		# TODO: Use of name and title? set_visisble?
 		self.set_name('unisister')
 		self.set_title('Unisister')
 
-		self.init_menu()
+		self._init_menu()
 		self.connect('popup-menu', self.popup_menu)
 		#self.connect('query-tooltip', #return Gtk.Tooltip object)
 		#self.connect('activate', self.menu.popup(None, None, Gtk.StatusIcon.position_menu, self, 0, Gtk.get_current_event_time()))
 
 		self.controller.start_timer()
 
-	def init_menu(self):
+	def _init_menu(self):
 		self.menu = Gtk.Menu()
 
 		self.menu_item_sync = Gtk.MenuItem(_("Force Synchronisation"))
-		self.menu_item_sync.connect('activate', self.synchronize_all)
+		self.menu_item_sync.connect('activate', lambda _: self.controller.synchronize_all)
 
 		self.menu_item_pref = Gtk.MenuItem(_("Preferences"))
 		#self.menu_item_pref.connect('activate', self.preferences)
@@ -110,19 +110,6 @@ class UnisisterStatusIcon(Gtk.StatusIcon):
 
 	def popup_menu(self, icon, button, time):
 		self.menu.popup(None, None, Gtk.StatusIcon.position_menu, self, button, time)
-
-	def synchronize_all(self, widgets):
-		self.controller.synchronize_all()
-
-	def sync_started(self):
-		self.set_from_icon_name(config.ICON_BUSSY)
-
-	def sync_done(self, success, message):
-		self.set_from_icon_name(config.ICON_IDLE)
-		if success:
-			Notify.Notification(_("Synchronisation completed"), message).show()
-		else:
-			Notify.Notification(_("Synchronisation was unsuccessful"), message).show()
 
 def show_about_dialog(widget):
 	dialog = Gtk.AboutDialog()

@@ -17,6 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import subprocess
+import os
 
 VERSION = "0.2"
 ICON_IDLE = "network-idle"
