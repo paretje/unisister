@@ -46,7 +46,7 @@ class UnisisterController:
 		sync_config = self.model.sync_config
 		for sync in sync_config:
 			self._start_synchronization(sync, sync_config[sync])
-	
+
 	def start_timer(self):
 		self.timer_tick()
 
@@ -108,16 +108,16 @@ class UnisisterStatusIcon(Gtk.StatusIcon):
 		self.menu.append(self.menu_item_about)
 		self.menu.append(self.menu_item_quit)
 		self.menu.show_all()
-	
+
 	def popup_menu(self, icon, button, time):
 		self.menu.popup(None, None, Gtk.StatusIcon.position_menu, self, button, time)
-	
+
 	def synchronize_all(self, widgets):
 		self.controller.synchronize_all()
 
 	def sync_started(self):
 		self.set_from_icon_name(config.ICON_BUSSY)
-	
+
 	def sync_done(self, success, message):
 		self.set_from_icon_name(config.ICON_IDLE)
 		if success:
@@ -140,7 +140,7 @@ def show_about_dialog(widget):
 
 def parse_config():
 	config_parser = configparser.ConfigParser(allow_no_value=True)
-	config_parser.read(os.path.expanduser(config.USER_CONFIG))
+	config_parser.read(os.path.expanduser(config.SYNCS))
 	sync_config = {}
 	for section in config_parser.sections():
 		sync_config[section] = dict(config_parser.items(section))
@@ -153,7 +153,7 @@ def set_localisation():
 	except locale.Error:
 		os.environ['LC_ALL'] = 'C'
 		locale.setlocale (locale.LC_ALL, "")
-	
+
 	gettext.textdomain('unisister')
 	gettext.bindtextdomain('unisister', config.LOCALEDIR)
 
