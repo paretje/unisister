@@ -31,12 +31,12 @@ import gettext
 from gettext import gettext as _
 import locale
 
-# TODO: Sent events when bussy updated
+# TODO: Sent events when busy updated
 class UnisisterModel:
 	def __init__(self, sync_config):
-		self.sync_config = {}
+		self.sync_config = sync_config
 		self.last_sync = {}
-		self.bussy = {}
+		self.busy = set()
 
 class UnisisterController:
 	def __init__(self, model):
@@ -48,28 +48,27 @@ class UnisisterController:
 			self._start_synchronization(sync, sync_config[sync])
 
 	def start_timer(self):
-		self.timer_tick()
+		self.synchronize_all()
+		threading.Timer(config.TIMER_TICK, self.timer_tick)
 
 	def timer_tick(self):
 		sync_config = self.model.sync_config
 		for sync in sync_config:
 			# TODO: Synchronization?
 			self.model.last_sync[sync] += 1
-			if sync_config[sync]['interval'] > 0 and (self.model.last_sync[sync] == None or self.model.last_sync[sync] > interval):
+			if sync_config[sync]['interval'] > 0 and self.model.last_sync[sync] > sync_config[sync]['interval']:
 				_start_synchronization(section, sync_config[section])
-		threading.Timer(config.TIMER_TICK, self.timer_tick)
+		threading.Timer(config.TIMER_TICK, self.timer_tick).start()
 
 	def _start_synchronization(self, sync, sync_config):
-		# TODO: synchronize
-		if not self.model.bussy[sync]:
-			self.model.bussy[sync] = True
+		# TODO: synchronize?
+		if sync not in self.model.busy:
+			self.model.busy.add(sync)
 			self.model.last_sync[sync] = 0
-			backend = backends[sync_config['backend']](self, sync_config)
-			threading.Thread(target=backend.sync)
+			backend = backends.available[sync_config['backend']](sync_config)
+			threading.Thread(target=backend.sync).start()
 
 class UnisisterStatusIcon(Gtk.StatusIcon):
-	backends = {'unison', backends.UnisonBackend}
-
 	def __init__(self, model):
 		Gtk.StatusIcon.__init__(self)
 
@@ -144,6 +143,11 @@ def parse_config():
 	sync_config = {}
 	for section in config_parser.sections():
 		sync_config[section] = dict(config_parser.items(section))
+		for (key, value) in sync_config[section].items():
+			if value == '':
+				sync_config[section][key] = None
+			elif value.isdecimal():
+				sync_config[section][key] = int(value)
 	return sync_config
 
 def set_localisation():

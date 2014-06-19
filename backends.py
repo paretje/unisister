@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import config
+
 import os
 import tempfile
 import subprocess
@@ -41,7 +43,9 @@ class UnisonBackend:
 	
 	def _sync(self):
 		self.output = tempfile.TemporaryFile(mode='w+t')
-		subprocess.call(['unison'] + self.arguments, stdout=config.DEVNULL, stderr=output)
+		print("Sync starts")
+		subprocess.call(['unison'] + self.arguments, stdout=config.DEVNULL, stderr=self.output)
+		print("Sync finished")
 
 	def _init_arguments(self):
 		# Test if the required configuration is set and valid
@@ -84,18 +88,20 @@ class UnisonBackend:
 		and self.sync_config['server_backend_location'] != "":
 			self.arguments += ['-servercmd', self.sync_config['server_backend_location']]
 
-	def _interpret_results(self, output):
-		output.seek(0)
+	def _interpret_output(self):
+		self.output.seek(0)
 		last_line = output.readlines()[-1].strip()
 		if last_line == 'Nothing to do: replicas have not changed since last sync.':
 			return ('nothing', None)
 		elif last_line == 'or invoke Unison with -ignorearchives flag.':
 			return ('corrupt')
 		elif last_line == 'Please delete lock files as appropriate and try again.':
-			lock_file = re.sub(r'The file (.+) on host .* should be deleted', r'\1', output.readlines()[-2].strip())
+			lock_file = re.sub(r'The file (.+) on host .* should be deleted', r'\1', self.output.readlines()[-2].strip())
 			return ('lock', lock_file)
 		elif last_line[0:12] == 'Fatal error:':
 			return ('error', last_line[13:])
 		else:
 			# TODO: interprete values?
 			return ('ok', last_line)
+
+available = {'unison': UnisonBackend}
