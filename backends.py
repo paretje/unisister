@@ -16,7 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import tempfile
 import subprocess
+import re
 
 class UnisonBackend:
 	def __init__(self, sync_config):
@@ -24,11 +27,23 @@ class UnisonBackend:
 
 	def sync(self):
 		# TODO: handle exceptions
-		arguments = self.get_arguments()
-		output = tempfile.TemporaryFile(mode='w+t')
-		subprocess.call(arguments.insert(0, 'unison'), stdout=config.DEVNULL, stderr=output)
+		self._init_arguments()
+		self._sync()
+		result_code, data = self._interpret_output()
 
-	def get_arguments(self):
+		# If archive is corrupt, synchronize again using -ignorearchives
+		if result_code == 'corrupt':
+			self.arguments.append('-ignorearchives')
+			self._sync()
+			result_code, data = self._interpret_output()
+
+		# TODO: sent event to controller with result_code and data
+	
+	def _sync(self):
+		self.output = tempfile.TemporaryFile(mode='w+t')
+		subprocess.call(['unison'] + self.arguments, stdout=config.DEVNULL, stderr=output)
+
+	def _init_arguments(self):
 		# Test if the required configuration is set and valid
 		if 'server_address' not in self.sync_config \
 		or self.sync_config['server_address'] == "" \
@@ -50,23 +65,37 @@ class UnisonBackend:
 		server += '/' + self.sync_config['server_location']
 
 		# Set basic arguments
-		arguments = [server, self.sync_config['local_location']]
+		self.arguments = [server, self.sync_config['local_location']]
 
 		# Set unison in batch mode, as to prevent it asking any questions
-		arguments.append('-batch')
+		self.arguments.append('-batch')
 
 		# In case of any conflict, use the version of the file located
 		# on the server
 		# TODO: make a backup of those conflicts. The problem is that
 		# unison makes a backup of everything then ...
-		arguments += ['-prefer', server]
+		self.arguments += ['-prefer', server]
 
 		# Synchronize timestamps
-		arguments.append('-times')
+		self.arguments.append('-times')
 
 		# Set unison executable location on the server
 		if 'sever_backend' in self.sync_config \
 		and self.sync_config['server_backend_location'] != "":
-			arguments += ['-servercmd', self.sync_config['server_backend_location']]
+			self.arguments += ['-servercmd', self.sync_config['server_backend_location']]
 
-		return arguments
+	def _interpret_results(self, output):
+		output.seek(0)
+		last_line = output.readlines()[-1].strip()
+		if last_line == 'Nothing to do: replicas have not changed since last sync.':
+			return ('nothing', None)
+		elif last_line == 'or invoke Unison with -ignorearchives flag.':
+			return ('corrupt')
+		elif last_line == 'Please delete lock files as appropriate and try again.':
+			lock_file = re.sub(r'The file (.+) on host .* should be deleted', r'\1', output.readlines()[-2].strip())
+			return ('lock', lock_file)
+		elif last_line[0:12] == 'Fatal error:':
+			return ('error', last_line[13:])
+		else:
+			# TODO: interprete values?
+			return ('ok', last_line)
