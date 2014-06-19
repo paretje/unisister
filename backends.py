@@ -90,7 +90,7 @@ class UnisonBackend:
 
 	def _interpret_output(self):
 		self.output.seek(0)
-		last_line = output.readlines()[-1].strip()
+		last_line = self.output.readlines()[-1].strip()
 		if last_line == 'Nothing to do: replicas have not changed since last sync.':
 			return ('nothing', None)
 		elif last_line == 'or invoke Unison with -ignorearchives flag.':
