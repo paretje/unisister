@@ -35,7 +35,6 @@ import gettext
 from gettext import gettext as _
 import locale
 
-# TODO: Sent events when busy updated
 class UnisisterModel:
 	def __init__(self, sync_config):
 		self.sync_config = sync_config
@@ -123,9 +122,11 @@ class UnisisterStatusIcon(Gtk.StatusIcon):
 		if state.code == 'started':
 			GLib.idle_add(self.set_from_icon_name, config.ICON_BUSSY)
 			GLib.idle_add(self.set_tooltip_text, 'Unisister\n' + _("Synchronizing %s")%', '.join(self.model.busy))
-		else:
+		elif len(self.model.busy) == 0:
 			GLib.idle_add(self.set_from_icon_name, config.ICON_IDLE)
 			GLib.idle_add(self.set_tooltip_text, 'Unisister')
+		else:
+			GLib.idle_add(self.set_tooltip_text, 'Unisister\n' + _("Synchronizing %s")%', '.join(self.model.busy))
 
 	def popup_menu(self, icon, button, time):
 		self.menu.popup(None, None, Gtk.StatusIcon.position_menu, self, button, time)
