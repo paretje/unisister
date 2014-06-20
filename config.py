@@ -1,7 +1,7 @@
 # Unisister
-# Copyright: (C) 2013 Online - Urbanus
+# Copyright: (C) 2013-2014 Online - Urbanus
 # Website: http://www.Online-Urbanus.be
-# Last modified: 27/04/2013 by Paretje
+# Last modified: 19/06/2014 by Paretje
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,10 +16,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-LOCALEDIR = "/usr/share/locale"
-LICENSE_LOCATION = "/usr/share/common-licenses/GPL-3"
-VERSION = "0.1"
-ICON_LOCATION = "/usr/share/icons/Tango/22x22/status"
-ICON_LOCATION_LARGE = "/usr/share/icons/Tango/32x32/status"
+import subprocess
+import os
+
+VERSION = "0.2"
 ICON_IDLE = "network-idle"
 ICON_BUSSY = "network-transmit-receive"
+AUTHORS = ["Paretje"]
+LOCALEDIR = "/usr/share/locale"
+SYNCS = "~/.config/unisister/syncs.ini"
+TIMER_TICK = 60
+
+# In Python 3.3, subprocess.DEVNULL has been added, so use this if available
+try:
+	DEVNULL = subprocess.DEVNULL
+except AttributeError:
+	DEVNULL = open(os.devnull, 'w')

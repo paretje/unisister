@@ -1,0 +1,196 @@
+#!/usr/bin/python3
+# Unisister
+# Copyright: (C) 2013-2014 Online - Urbanus
+# Website: http://www.Online-Urbanus.be
+# Last modified: 17/06/2014 by Paretje
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import config
+import backends
+
+import zope.event
+
+from gi.repository import Gtk
+from gi.repository import GObject
+from gi.repository import GLib
+from gi.repository import Notify
+
+import os
+import threading
+import configparser
+
+import gettext
+from gettext import gettext as _
+import locale
+
+# TODO: Sent events when busy updated
+class UnisisterModel:
+	def __init__(self, sync_config):
+		self.sync_config = sync_config
+		self.last_sync = {}
+		self.busy = set()
+		
+		zope.event.subscribers.append(self.set_done)
+	
+	def set_done(self, state):
+		if state.code != 'started':
+			self.busy.remove(state.sync)
+
+class UnisisterBackendsController:
+	def __init__(self, model):
+		self.model = model
+
+	def start_timer(self):
+		self.synchronize_all()
+		threading.Timer(config.TIMER_TICK, self.timer_tick)
+
+	def timer_tick(self):
+		sync_config = self.model.sync_config
+		for sync in sync_config:
+			# TODO: Synchronization?
+			self.model.last_sync[sync] += 1
+			if sync_config[sync]['interval'] > 0 and self.model.last_sync[sync] > sync_config[sync]['interval']:
+				self._start_synchronization(section, sync_config[section])
+		threading.Timer(config.TIMER_TICK, self.timer_tick).start()
+
+	def synchronize_all(self):
+		sync_config = self.model.sync_config
+		for sync in sync_config:
+			self._start_synchronization(sync, sync_config[sync])
+
+	def _start_synchronization(self, sync, sync_config):
+		# TODO: synchronize?
+		if sync not in self.model.busy:
+			self.model.busy.add(sync)
+			self.model.last_sync[sync] = 0
+			zope.event.notify(backends.StateEvent(sync, 'started'))
+			backends.available[sync_config['backend']](sync, sync_config).start()
+
+class UnisisterStatusIcon(Gtk.StatusIcon):
+	def __init__(self, model):
+		Gtk.StatusIcon.__init__(self)
+
+		self.model = model
+		self.controller = UnisisterBackendsController(model)
+
+		self.set_from_icon_name(config.ICON_IDLE)
+		# TODO: Use of name and title? set_visisble?
+		self.set_name('unisister')
+		self.set_title('Unisister')
+		self.set_tooltip_text('Unisister')
+
+		self._init_menu()
+		self.connect('popup-menu', self.popup_menu)
+		#self.connect('activate', self.menu.popup(None, None, Gtk.StatusIcon.position_menu, self, 0, Gtk.get_current_event_time()))
+
+		zope.event.subscribers.append(self.update_icon)
+		self.controller.start_timer()
+
+	def _init_menu(self):
+		self.menu = Gtk.Menu()
+
+		self.menu_item_sync = Gtk.MenuItem(_("Force Synchronisation"))
+		self.menu_item_sync.connect('activate', lambda _: self.controller.synchronize_all())
+
+		#self.menu_item_pref = Gtk.MenuItem(_("Preferences"))
+		#self.menu_item_pref.connect('activate', self.preferences)
+
+		self.menu_item_about = Gtk.MenuItem(_("About"))
+		self.menu_item_about.connect('activate', show_about_dialog)
+
+		self.menu_item_quit = Gtk.MenuItem(_("Quit"))
+		self.menu_item_quit.connect('activate', Gtk.main_quit)
+
+		self.menu.append(self.menu_item_sync)
+		#self.menu.append(self.menu_item_pref)
+		self.menu.append(self.menu_item_about)
+		self.menu.append(self.menu_item_quit)
+		self.menu.show_all()
+
+	def update_icon(self, state):
+		if state.code == 'started':
+			GLib.idle_add(self.set_from_icon_name, config.ICON_BUSSY)
+			GLib.idle_add(self.set_tooltip_text, 'Unisister\n' + _("Synchronizing %s")%', '.join(self.model.busy))
+		else:
+			GLib.idle_add(self.set_from_icon_name, config.ICON_IDLE)
+			GLib.idle_add(self.set_tooltip_text, 'Unisister')
+
+	def popup_menu(self, icon, button, time):
+		self.menu.popup(None, None, Gtk.StatusIcon.position_menu, self, button, time)
+
+def show_about_dialog(widget):
+	dialog = Gtk.AboutDialog()
+
+	dialog.set_program_name("Unisister")
+	dialog.set_logo_icon_name(config.ICON_IDLE)
+	dialog.set_comments("The sister of Unison.\n" + _("Unisister is a tool to automatically synchronize your directory with a central directory, using Unison."))
+	dialog.set_version(config.VERSION)
+	dialog.set_authors(config.AUTHORS)
+	dialog.set_license_type(Gtk.License.GPL_3_0)
+
+	dialog.run()
+	dialog.destroy()
+
+def show_state_message(state):
+	if state.code == 'done':
+		show_message(_("Synchronization completed"), state.data, None)
+	elif state.code == 'error':
+		show_message(_("Synchronization of %s failed!")%state.sync,
+			state.data, None).show()
+	elif state.code == 'lock':
+		show_message(_("Synchronization of %s failed!")%state.sync,
+			_("It seems like your backend has been locked. Deletion of the following file should solve this:" + state.data), None).show()
+
+def show_message(title, description, icon=None):
+	Notify.init("Unisister")
+	Notify.Notification.new(title, description, icon).show()
+	Notify.uninit();
+
+# TODO: test if there is any configuration
+def parse_config():
+	config_parser = configparser.ConfigParser(allow_no_value=True)
+	config_parser.read(os.path.expanduser(config.SYNCS))
+	sync_config = {}
+	for section in config_parser.sections():
+		sync_config[section] = dict(config_parser.items(section))
+		for (key, value) in sync_config[section].items():
+			if value == '':
+				sync_config[section][key] = None
+			elif value.isdecimal():
+				sync_config[section][key] = int(value)
+	return sync_config
+
+def set_localisation():
+	# Code based on the code in system-config-printer v1.3.7
+	try:
+		locale.setlocale (locale.LC_ALL, "")
+	except locale.Error:
+		os.environ['LC_ALL'] = 'C'
+		locale.setlocale (locale.LC_ALL, "")
+
+	gettext.textdomain('unisister')
+	gettext.bindtextdomain('unisister', config.LOCALEDIR)
+
+if __name__ == "__main__":
+	set_localisation()
+
+	zope.event.subscribers.append(show_state_message)
+	sync_config = parse_config()
+	model = UnisisterModel(sync_config)
+
+	# Enable thread support for PyGObject
+	GObject.threads_init()
+	status = UnisisterStatusIcon(model)
+	Gtk.main()
