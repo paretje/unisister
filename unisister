@@ -1,8 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # Unisister
 # Copyright: (C) 2013-2014 Online - Urbanus
 # Website: http://www.Online-Urbanus.be
-# Last modified: 15/10/2014 by Paretje
+# Last modified: 08/10/2014 by Paretje
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,13 +22,14 @@ import backends
 
 import zope.event
 
-import pygtk
-pygtk.require('2.0')
-import gtk as Gtk
+from gi.repository import Gtk
+from gi.repository import GObject
+from gi.repository import GLib
+from gi.repository import Notify
 
 import os
 import threading
-import ConfigParser as configparser
+import configparser
 
 import gettext
 from gettext import gettext as _
@@ -58,7 +59,7 @@ class UnisisterBackendsController:
 		sync_config = self.model.sync_config
 		for sync in sync_config:
 			# TODO: Synchronization?
-			self.model.last_sync[sync] += config.TIMER_TICK
+			self.model.last_sync[sync] += 1
 			if sync_config[sync]['interval'] > 0 and self.model.last_sync[sync] > sync_config[sync]['interval']:
 				self._start_synchronization(section, sync_config[section])
 		threading.Timer(config.TIMER_TICK, self.timer_tick).start()
