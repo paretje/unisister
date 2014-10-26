@@ -60,8 +60,8 @@ class UnisisterBackendsController:
 		for sync in sync_config:
 			# TODO: Synchronization?
 			self.model.last_sync[sync] += config.TIMER_TICK
-			if sync_config[sync]['interval'] > 0 and self.model.last_sync[sync] > sync_config[sync]['interval']:
-				self._start_synchronization(section, sync_config[section])
+			if sync_config[sync]['interval'] > 0 and self.model.last_sync[sync] >= sync_config[sync]['interval']:
+				self._start_synchronization(sync, sync_config[sync])
 		threading.Timer(config.TIMER_TICK, self.timer_tick).start()
 
 	def synchronize_all(self):
