@@ -26,6 +26,7 @@ On Debian, this can be installed using apt-get install python3 gir1.2-gtk-3.0 gi
 Configuration
 =============
 The configuration of Unisister should be located at .config/unisister/syncs.ini. This file has the following syntax:
+```
 [sync1]
 ; Required fields
 server_address=server
@@ -49,3 +50,4 @@ local_backend_location=bin/unison
 
 ; Synchronize modification times with server (default: yes)
 backend_synchronize_times=yes
+```
