@@ -92,7 +92,6 @@ class UnisisterStatusIcon(Gtk.StatusIcon):
 
 		self._init_menu()
 		self.connect('popup-menu', self.popup_menu)
-		#self.connect('activate', self.menu.popup(None, None, Gtk.StatusIcon.position_menu, self, 0, Gtk.get_current_event_time()))
 
 		zope.event.subscribers.append(self.update_icon)
 		self.controller.start_timer()
@@ -200,4 +199,4 @@ if __name__ == "__main__":
 	status = UnisisterStatusIcon(model)
 
 	Gtk.main()
-	Notify.uninit();
+	Notify.uninit()
