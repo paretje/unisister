@@ -106,7 +106,7 @@ class UnisonBackend(threading.Thread):
 	def _interpret_output(self):
 		self.output.seek(0)
 		last_line = self.output.readlines()[-1].strip()
-                if last_line[0:14] == 'Nothing to do:':
+		if last_line[0:14] == 'Nothing to do:':
 			return StateEvent(self.sync, 'nothing', None)
 		elif last_line == 'or invoke Unison with -ignorearchives flag.':
 			return StateEvent(self.sync, 'corrupt')
