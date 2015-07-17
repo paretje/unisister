@@ -53,7 +53,11 @@ class UnisisterBackendsController:
 
 	def start_timer(self):
 		self.synchronize_all()
-		threading.Timer(config.TIMER_TICK, self.timer_tick).start()
+		self.timer = threading.Timer(config.TIMER_TICK, self.timer_tick)
+		self.timer.start()
+
+	def stop_timer(self):
+		self.timer.cancel()
 
 	def timer_tick(self):
 		sync_config = self.model.sync_config
@@ -62,7 +66,8 @@ class UnisisterBackendsController:
 			self.model.last_sync[sync] += config.TIMER_TICK
 			if sync_config[sync]['interval'] > 0 and self.model.last_sync[sync] >= sync_config[sync]['interval']:
 				self._start_synchronization(sync, sync_config[sync])
-		threading.Timer(config.TIMER_TICK, self.timer_tick).start()
+		self.timer = threading.Timer(config.TIMER_TICK, self.timer_tick)
+		self.timer.start()
 
 	def synchronize_all(self):
 		sync_config = self.model.sync_config
@@ -109,7 +114,7 @@ class UnisisterStatusIcon(Gtk.StatusIcon):
 		self.menu_item_about.connect('activate', show_about_dialog)
 
 		self.menu_item_quit = Gtk.MenuItem(_("Quit"))
-		self.menu_item_quit.connect('activate', Gtk.main_quit)
+		self.menu_item_quit.connect('activate', self.quit)
 
 		self.menu.append(self.menu_item_sync)
 		#self.menu.append(self.menu_item_pref)
@@ -129,6 +134,10 @@ class UnisisterStatusIcon(Gtk.StatusIcon):
 
 	def popup_menu(self, icon, button, time):
 		self.menu.popup(None, None, Gtk.StatusIcon.position_menu, self, button, time)
+
+	def quit(self, widget):
+		self.controller.stop_timer()
+		Gtk.main_quit()
 
 def show_about_dialog(widget):
 	dialog = Gtk.AboutDialog()
