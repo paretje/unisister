@@ -22,17 +22,14 @@ import backends
 
 import zope.event
 
-from gi.repository import Gtk
 from gi.repository import GObject
-from gi.repository import GLib
 from gi.repository import Notify
 
 import os
-import threading
 import configparser
+import sys
 
 import gettext
-from gettext import gettext as _
 import locale
 
 class UnisisterModel:
@@ -46,125 +43,6 @@ class UnisisterModel:
 	def set_done(self, state):
 		if state.code != 'started':
 			self.busy.remove(state.sync)
-
-class UnisisterBackendsController:
-	def __init__(self, model):
-		self.model = model
-
-	def start_timer(self):
-		self.synchronize_all()
-		self.timer = threading.Timer(config.TIMER_TICK, self.timer_tick)
-		self.timer.start()
-
-	def stop_timer(self):
-		self.timer.cancel()
-
-	def timer_tick(self):
-		sync_config = self.model.sync_config
-		for sync in sync_config:
-			# TODO: Synchronization?
-			self.model.last_sync[sync] += config.TIMER_TICK
-			if sync_config[sync]['interval'] > 0 and self.model.last_sync[sync] >= sync_config[sync]['interval']:
-				self._start_synchronization(sync, sync_config[sync])
-		self.timer = threading.Timer(config.TIMER_TICK, self.timer_tick)
-		self.timer.start()
-
-	def synchronize_all(self):
-		sync_config = self.model.sync_config
-		for sync in sync_config:
-			self._start_synchronization(sync, sync_config[sync])
-
-	def _start_synchronization(self, sync, sync_config):
-		# TODO: synchronize?
-		if sync not in self.model.busy:
-			self.model.busy.add(sync)
-			self.model.last_sync[sync] = 0
-			zope.event.notify(backends.StateEvent(sync, 'started'))
-			backends.available[sync_config['backend']](sync, sync_config).start()
-
-class UnisisterStatusIcon(Gtk.StatusIcon):
-	def __init__(self, model):
-		Gtk.StatusIcon.__init__(self)
-
-		self.model = model
-		self.controller = UnisisterBackendsController(model)
-
-		self.set_from_icon_name(config.ICON_IDLE)
-		# TODO: Use of name and title? set_visisble?
-		self.set_name('unisister')
-		self.set_title('Unisister')
-		self.set_tooltip_text('Unisister')
-
-		self._init_menu()
-		self.connect('popup-menu', self.popup_menu)
-
-		zope.event.subscribers.append(self.update_icon)
-		self.controller.start_timer()
-
-	def _init_menu(self):
-		self.menu = Gtk.Menu()
-
-		self.menu_item_sync = Gtk.MenuItem(_("Force Synchronisation"))
-		self.menu_item_sync.connect('activate', lambda _: self.controller.synchronize_all())
-
-		#self.menu_item_pref = Gtk.MenuItem(_("Preferences"))
-		#self.menu_item_pref.connect('activate', self.preferences)
-
-		self.menu_item_about = Gtk.MenuItem(_("About"))
-		self.menu_item_about.connect('activate', show_about_dialog)
-
-		self.menu_item_quit = Gtk.MenuItem(_("Quit"))
-		self.menu_item_quit.connect('activate', self.quit)
-
-		self.menu.append(self.menu_item_sync)
-		#self.menu.append(self.menu_item_pref)
-		self.menu.append(self.menu_item_about)
-		self.menu.append(self.menu_item_quit)
-		self.menu.show_all()
-
-	def update_icon(self, state):
-		if state.code == 'started':
-			GLib.idle_add(self.set_from_icon_name, config.ICON_BUSSY)
-			GLib.idle_add(self.set_tooltip_text, 'Unisister\n' + _("Synchronizing %s")%', '.join(self.model.busy))
-		elif len(self.model.busy) == 0:
-			GLib.idle_add(self.set_from_icon_name, config.ICON_IDLE)
-			GLib.idle_add(self.set_tooltip_text, 'Unisister')
-		else:
-			GLib.idle_add(self.set_tooltip_text, 'Unisister\n' + _("Synchronizing %s")%', '.join(self.model.busy))
-
-	def popup_menu(self, icon, button, time):
-		self.menu.popup(None, None, Gtk.StatusIcon.position_menu, self, button, time)
-
-	def quit(self, widget):
-		self.controller.stop_timer()
-		Gtk.main_quit()
-
-def show_about_dialog(widget):
-	dialog = Gtk.AboutDialog()
-
-	dialog.set_program_name("Unisister")
-	dialog.set_logo_icon_name(config.ICON_IDLE)
-	dialog.set_comments("The sister of Unison.\n" + _("Unisister is a tool to automatically synchronize your directory with a central directory, using Unison."))
-	dialog.set_version(config.VERSION)
-	dialog.set_authors(config.AUTHORS)
-	dialog.set_license_type(Gtk.License.GPL_3_0)
-
-	dialog.run()
-	dialog.destroy()
-
-# TODO: Show appropriate icons
-def show_state_message(state):
-	if state.code == 'done':
-		GLib.idle_add(show_message, _("Synchronization of %s completed")%state.sync,
-			state.data)
-	elif state.code == 'error':
-		GLib.idle_add(show_message,
-			_("Synchronization of %s failed!")%state.sync,
-			state.data)
-	elif state.code == 'lock':
-		GLib.idle_add(show_message,
-			_("Synchronization of %s failed!")%state.sync,
-			_("It seems like your backend has been locked. Deletion of the following file should solve this:" + state.data))
 
 def show_message(title, description, icon=None):
 	Notify.Notification.new(title, description, icon).show()
@@ -198,14 +76,23 @@ if __name__ == "__main__":
 	set_localisation()
 	sync_config = parse_config()
 	model = UnisisterModel(sync_config)
+	controller = backends.UnisisterBackendsController(model)
 
 	# Enable thread support for PyGObject
 	GObject.threads_init()
 
 	Notify.init("Unisister")
-	zope.event.subscribers.append(show_state_message)
 
-	status = UnisisterStatusIcon(model)
+	if len(sys.argv) > 1 and sys.argv[1] == '--no-gui':
+		import atexit
 
-	Gtk.main()
-	Notify.uninit()
+		controller.start_timer()
+		atexit.register(Notify.uninit)
+	else:
+		import gui
+		from gi.repository import Gtk
+
+		zope.event.subscribers.append(gui.show_state_message)
+		status = gui.UnisisterStatusIcon(model, controller)
+		Gtk.main()
+		Notify.uninit()

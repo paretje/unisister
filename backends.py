@@ -26,6 +26,41 @@ import threading
 import subprocess
 import re
 
+class UnisisterBackendsController:
+	def __init__(self, model):
+		self.model = model
+
+	def start_timer(self):
+		self.synchronize_all()
+		self.timer = threading.Timer(config.TIMER_TICK, self.timer_tick)
+		self.timer.start()
+
+	def stop_timer(self):
+		self.timer.cancel()
+
+	def timer_tick(self):
+		sync_config = self.model.sync_config
+		for sync in sync_config:
+			# TODO: Synchronization?
+			self.model.last_sync[sync] += config.TIMER_TICK
+			if sync_config[sync]['interval'] > 0 and self.model.last_sync[sync] >= sync_config[sync]['interval']:
+				self._start_synchronization(sync, sync_config[sync])
+		self.timer = threading.Timer(config.TIMER_TICK, self.timer_tick)
+		self.timer.start()
+
+	def synchronize_all(self):
+		sync_config = self.model.sync_config
+		for sync in sync_config:
+			self._start_synchronization(sync, sync_config[sync])
+
+	def _start_synchronization(self, sync, sync_config):
+		# TODO: synchronize?
+		if sync not in self.model.busy:
+			self.model.busy.add(sync)
+			self.model.last_sync[sync] = 0
+			zope.event.notify(StateEvent(sync, 'started'))
+			available[sync_config['backend']](sync, sync_config).start()
+
 class StateEvent:
 	def __init__(self, sync, state_code, data=None):
 		self.sync = sync
