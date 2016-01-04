@@ -29,6 +29,7 @@ import os
 import configparser
 import sys
 
+from gettext import gettext as _
 import gettext
 import locale
 
@@ -46,6 +47,19 @@ class UnisisterModel:
 
 def show_message(title, description, icon=None):
 	Notify.Notification.new(title, description, icon).show()
+
+# TODO: Show appropriate icons
+def show_state_message(state):
+	if state.code == 'done':
+		show_message(_("Synchronization of %s completed")%state.sync,
+			state.data)
+	elif state.code == 'error':
+		show_message(_("Synchronization of %s failed!")%state.sync,
+			state.data)
+	elif state.code == 'lock':
+		show_message(
+			_("Synchronization of %s failed!")%state.sync,
+			_("It seems like your backend has been locked. Deletion of the following file should solve this:" + state.data))
 
 # TODO: test if there is any configuration
 def parse_config():
@@ -86,13 +100,15 @@ if __name__ == "__main__":
 	if len(sys.argv) > 1 and sys.argv[1] == '--no-gui':
 		import atexit
 
+		zope.event.subscribers.append(show_state_message)
 		controller.start_timer()
 		atexit.register(Notify.uninit)
 	else:
 		import gui
 		from gi.repository import Gtk
+		from gi.repository import GLib
 
-		zope.event.subscribers.append(gui.show_state_message)
+		zope.event.subscribers.append(lambda state: GLib.idle_add(show_state_message, state))
 		status = gui.UnisisterStatusIcon(model, controller)
 		Gtk.main()
 		Notify.uninit()

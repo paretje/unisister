@@ -76,17 +76,3 @@ def show_about_dialog(widget):
 
 	dialog.run()
 	dialog.destroy()
-
-# TODO: Show appropriate icons
-def show_state_message(state):
-	if state.code == 'done':
-		GLib.idle_add(show_message, _("Synchronization of %s completed")%state.sync,
-			state.data)
-	elif state.code == 'error':
-		GLib.idle_add(show_message,
-			_("Synchronization of %s failed!")%state.sync,
-			state.data)
-	elif state.code == 'lock':
-		GLib.idle_add(show_message,
-			_("Synchronization of %s failed!")%state.sync,
-			_("It seems like your backend has been locked. Deletion of the following file should solve this:" + state.data))
