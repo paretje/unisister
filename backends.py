@@ -126,9 +126,11 @@ class UnisonBackend(threading.Thread):
 
 		# In case of any conflict, use the version of the file located
 		# on the server
-		# TODO: make a backup of those conflicts. The problem is that
-		# unison makes a backup of everything then ...
 		self.arguments += ['-prefer', server]
+
+		# If available, use -copyonconflict
+		if '-copyonconflict' in subprocess.run(['unison', '-help'], stdout=subprocess.PIPE, universal_newlines=True).stdout:
+			self.arguments.append('-copyonconflict')
 
 		# Synchronize timestamps
 		self.arguments.append('-times')
