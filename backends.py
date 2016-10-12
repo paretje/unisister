@@ -129,8 +129,13 @@ class UnisonBackend(threading.Thread):
 		self.arguments += ['-prefer', server]
 
 		# If available, use -copyonconflict
-		if '-copyonconflict' in subprocess.run(['unison', '-help'], stdout=subprocess.PIPE, universal_newlines=True).stdout:
-			self.arguments.append('-copyonconflict')
+		try:
+			if '-copyonconflict' in subprocess.run(['unison', '-help'], stdout=subprocess.PIPE, universal_newlines=True).stdout:
+				self.arguments.append('-copyonconflict')
+		except AttributeError:
+			if '-copyonconflict' in subprocess.check_output('unison -help ; exit 0', universal_newlines=True, shell=True):
+				self.arguments.append('-copyonconflict')
+
 
 		# Synchronize timestamps
 		self.arguments.append('-times')
