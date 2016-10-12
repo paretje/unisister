@@ -21,11 +21,11 @@ Dependencies
  - Notify
  - zope.event
 
-On Debian, this can be installed using apt-get install python3 gir1.2-gtk-3.0 gir1.2-notify-0.7 python3-zope.event
+On Debian, this can be installed using `apt-get install python3 gir1.2-gtk-3.0 gir1.2-notify-0.7 python3-zope.event`
 
 Configuration
 =============
-The configuration of Unisister should be located at .config/unisister/syncs.ini. This file has the following syntax:
+The configuration of Unisister should be located at `.config/unisister/syncs.ini`. This file has the following syntax:
 ```
 [sync1]
 ; Required fields
